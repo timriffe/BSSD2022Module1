@@ -101,11 +101,11 @@ library(gapminder)
 
 Let's examine this data, some tricks:
 
-```{r}
+```{r, echo = FALSE, results = "hide"}
 # display in console (not so great)
 gapminder
 # open in a table viewer (not editor)
-View(gapminder)
+ View(gapminder)
 # show me the structure:
 str(gapminder)
 # head() to see the top:
@@ -185,6 +185,60 @@ Now, how can we refine the plot more to pick out any stories that might be in th
 # ggplot(data = gapminder,
 #        mapping = aes())
 ```
+
+## add more specs to plots
+ 
+The above treated all points equally; what about splitting things up somehow?
+
+```{r}
+ggplot(data = gapminder,
+       mapping = aes(x = gdpPercap,
+                     y = lifeExp)) +
+  geom_point(
+             mapping = aes(color = continent),
+             alpha = .2) +
+  geom_smooth( mapping = aes(color = continent)) +
+  scale_x_log10() 
+```
+
+Here, we use color to differentiate subsets in the data. If you map color to country you get too many colors and you'll never know which country is which. But you can get away with mapping color to continents. If you do this inside the `ggplot()` call at the start, then the mapping will be used for each `geom`, otherwise, you can be specific about which geoms need this mapping. Above we have both points and smoother lines sharing continent colors.
+
+We can see group behavior in a comparative way here, but really just in the smoother lines, because the points are so overlapped. If we really care about the subgroup point clouds (or this distributions) then we can facet the plot (make panels).
+
+```{r}
+ggplot(data = gapminder,
+       mapping = aes(x = gdpPercap,
+                     y = lifeExp)) +
+  geom_line(alpha = .2,
+            mapping = aes(group = country)) +
+  geom_smooth() +
+  scale_x_log10() +
+  facet_wrap(~continent)
+```
+
+`~continent` is a formula, meaning it could have a left and right, but we're doing just a single variable here, so the `~` looks a bit weird by itself. The continents will follow some default ordering in this case (the factor levels). If `continent` were a character variable, then it would be alphabetical probably.
+
+How can we add time to this plot to actually know the direction???
+
+Exercise: add time to this plot (pick either `lifeExp` or `gdpPercap`); you can either facet or not. A line per country. No smoothers unless you want. 10 min (until 13:50).
+
+```{r}
+ggplot(data = gapminder,
+       mapping = aes(x = year,
+                     y = lifeExp)) +
+  geom_line(alpha = .2, 
+            mapping = aes(group = country)) +
+  facet_wrap(~continent)
+```
+
+
+
+
+
+
+
+
+
 
 
 
