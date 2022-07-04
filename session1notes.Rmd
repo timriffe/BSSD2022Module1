@@ -1,0 +1,199 @@
+---
+title: "Module 1 Session 1"
+author: "Tim Riffe"
+date: '2022-07-04'
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## First steps
+
+Anything we type here out in the open in just text, we can't break things this way :-)
+
+
+To make an `R` chunk, you can use the hot-keys:
+`Ctrl + Alt + i` (or `Ctrl + Option + i` on Mac)
+
+```{r}
+A = c(1,2,3,4)
+B = A * 2
+# rm(A)
+length(A)
+```
+To execute based on selecting code OR based on the cursor position, use `Ctrl + Enter`
+
+To demonstrate `execute all R chunks above`:
+
+```{r}
+# this is just a temp calculation,
+# B retains it's values
+B + 4
+```
+
+An object created using another object is independent. `B` is independent from `A`, as an object.
+
+```{r}
+# we can overwrite B; we lost that first one.
+B <- runif(n = 4)
+```
+
+Note, you can use `=` to assign also, but we like `<-` because the direction is clear.
+
+`runif()` Is an `R` conventional name for random number generator, `rnorm()`, `rbinom()`, `rpois()`. These are just short names to access many (all?) of the statistical distributions, and they also have short names for quantiles, densities, etc.
+
+### How can we learn more about a function?
+
+Type `?` and then the function name
+```{r}
+?runif # inquire about a function
+
+# usage, based on examining help file
+dunif(x = seq(from = 0,
+              to = 1,
+              by = .1))
+```
+
+### commenting out
+To quickly comment-out code, you can select lines and
+click `Ctrl + Shift + c`
+
+* The comment action will adapt to whatever environment you happen to be in.
+
+### how to generate a sequence of numbers
+
+```{r}
+?seq
+
+# position interpretation of arguments
+rev(seq(1,0,by = -.01)) # a decreasing sequence needs a negative
+                        # interval (by)
+seq(0,1,by=.01)
+seq(from = 0,
+    to = 1,
+    by = .01)
+
+0:100
+0:110
+12:55
+```
+
+Things to note: `:` is for easy integer sequences
+Seq `by` argument needs to use a sign (`-`) if it's actually decreasing, by `length.out` doesn't care. We specified `0,1` to the arguments `from` `to` based on their positions / order, but really we shouldn't be lazy, and instead, as a favor to a future version of ourselves we should write the argument names.
+
+I also spoke about formatting tricks to make your code easier to read and let it breathe. Like poetry.
+
+
+## install the gapminder package
+
+We can install any `R` package from CRAN using `install.packages()`
+```{r}
+# install.packages("gapminder")
+```
+
+Once you install a package then you can load it with `library()`
+
+```{r}
+library(gapminder)
+```
+
+Let's examine this data, some tricks:
+
+```{r}
+# display in console (not so great)
+gapminder
+# open in a table viewer (not editor)
+View(gapminder)
+# show me the structure:
+str(gapminder)
+# head() to see the top:
+head(gapminder)
+tail(gapminder)
+```
+
+This dataset is **tidy** because each row is an observation (a unique combination of country and year (continent is a grouper of country here)), and each column is a variable. There are columns that identify the observation (structure), and those that are variables.
+
+`str()` is maybe the best way to size up an unfamiliar object because you get a little summary of the data types in each column, and a little sample of the first few values.
+
+##
+
+```{r}
+# install.packages("tidyverse")
+library(tidyverse)
+
+```
+
+GG stands for grammar of graphics, and that should help understand how we build plot in a sequence of steps and specify a mapping of our data to the properties of the plot.
+
+```{r}
+ggplot(data = gapminder,
+       mapping = aes(x = gdpPercap,
+                     y = lifeExp
+                     )) +
+  geom_point()
+```
+
+first, open the plot, so to speak, with `ggplot()`, where you need, at a minimum to specify the space (`x`,`y`), and then we **add** a geometric element to the plot. The `aes()` part is the important one, because it gives the mapping.
+
+```{r}
+ggplot(data = gapminder,
+       mapping = aes(x = gdpPercap,
+                     y = lifeExp)) +
+  # this is a setting
+  # geom_point(alpha = .1,
+  #            size = 2)
+  
+  # you can also MAP right inside geoms
+  geom_point(mapping = aes(alpha = pop)) +
+  
+  # not following the aes of the point!
+  # just the shared original ones!
+  geom_smooth() # on top!
+```
+
+Here we demonstrated the difference between setting and mapping, and we point out that mapping can happen right inside geoms, and that this can help us map differently for different geoms. And the additive sequence of the plots determines how elements will overlap.
+
+How can we make this pattern clearer and more interpretable?
+
+We could log the x axis:
+```{r}
+ggplot(data = gapminder,
+       mapping = aes(x = gdpPercap,
+                     y = lifeExp)) +
+  geom_point(alpha = .1) +
+  geom_smooth() +
+  scale_x_log10()
+```
+
+To contrast, we could log directly:
+
+```{r}
+ggplot(data = gapminder,
+       mapping = aes(x = log10(gdpPercap),
+                     y = lifeExp)) +
+  geom_point(alpha = .1) +
+  geom_smooth()
+```
+The difference is just in the human-accessibility of the labels, it's a matter of polite communication, not a matter of literal value labels.
+
+
+Now, how can we refine the plot more to pick out any stories that might be in there?
+
+```{r}
+# ggplot(data = gapminder,
+#        mapping = aes())
+```
+
+
+
+
+
+
+
+
+
+
+
+
