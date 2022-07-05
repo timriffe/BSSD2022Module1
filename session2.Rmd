@@ -1,0 +1,165 @@
+---
+title: "Session notes day 2"
+author: "Tim Riffe"
+date: '2022-07-05'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Yesterday's exercises
+
+```{r}
+library(gapminder)
+library(tidyverse)
+# ?geom_smooth
+ggplot(data = gapminder,
+       mapping = aes(x = gdpPercap,
+                     y = lifeExp)) +
+  geom_point(alpha = .05) +
+  scale_x_log10() +
+  geom_smooth(method = "loess", color = "red") +
+  geom_smooth(method = "lm", color = "orange") + 
+  geom_smooth(method = "gam") +
+  facet_wrap(~continent)
+
+```
+```{r}
+filter(gapminder,
+       continent != "Oceania")
+# == 
+filter(gapminder,
+       year == 1952 | year == 2007)
+
+filter(gapminder,
+       year == min(year) | year == max(year))
+
+filter(gapminder, 
+       year %in% c(1952, 2007))
+
+ggplot(data = filter(gapminder,
+                     year %in% range(year),
+                     continent != "Oceania"),
+       mapping = aes(x = gdpPercap, 
+                     fill = continent)) +
+  geom_density(alpha = .5) +
+  scale_x_log10() +
+  facet_wrap(~year)
+```
+
+## pipes
+
+Here we take the above plot code and unpack it into a clear sequence of steps. The ` %>%` (pipe) operator is used to pass a result from the left to the right. It takes the result of the operation on the left, and feeds it to the first argument of the function on the right, which in our case is always going to be `data`, so it works without needing to be explicit.
+
+`Ctril + Shift + m`
+```{r}
+  # take the original gapminder data:
+gapminder %>% 
+  # then filter it to specific rows
+  # based on logical conditions
+  
+  filter(year %in% range(year),
+         continent != "Oceania") %>% 
+  
+  # then take that result and give it to ggplot()
+  ggplot(mapping = aes(x = gdpPercap, 
+                       fill = continent)) +
+    geom_density(alpha = .5) +
+    scale_x_log10() +
+    facet_wrap(~year)
+```
+
+## other tidy functions besides `filter()`
+
+### filter() and select()
+Filtering is for rows
+Selecting is for columns
+```{r}
+# select grabs columns (result still a tibble)
+gapminder %>% # Ctrl + Shift + m
+  select(country, 
+         year, 
+         pop)
+
+# can also remove:
+# install.packages("janitor")
+library(janitor)
+gapminder %>% 
+  select(-pop) %>% 
+  clean_names()
+```
+You can negative select (delete) using a `-` in front of the variable name.
+Just because we're havig to type a lot, we do `clean_names()` in order to standardize column names
+
+```{r}
+gapminder %>% 
+  clean_names() %>% 
+  select(-gdp_percap) # need to spell using result
+                      # of clean names, which is 
+                      # evaluated first
+```
+
+### mutate()
+
+First we clean up the names, then we send that to `mutate()`, which we use to create new columns in the data, using a variety of neat tricks. First we define some new nonsensical columns using basic arithemtic, then in the same function call, we use those results to calcualte gdp, again, to verify that we are thinking clearly, then we use another funciton (`mean()`). Since we're working with the whole dataset at once, the result of `mean()` will be assigned to each row in the newly created column.
+```{r}
+gapminder %>% 
+  clean_names() %>% 
+  mutate(gdp = gdp_percap * pop,
+         stationary_births = pop / life_exp,
+         stationary_lifetime_gdp_percap = gdp_percap * life_exp,
+         
+         # recyle things created, immediately if you want:
+         gdp_again = stationary_lifetime_gdp_percap * stationary_births,
+         
+         # you can use functions here
+         avg_life_exp = mean(life_exp),
+         
+         # simple difference
+         life_exp_gap = life_exp - avg_life_exp)
+```
+
+### operating on groups 
+
+Note, that when we declare groups, these are independent, meaning that what you do in one group doesn't affect the others, so no worries. Groups remain in effect until explicitly removed using `ungroup()`. We are free to declare groups whenever and however we please, as long as there are potential grouping variables in the data.
+
+```{r}
+gapminder %>% 
+  clean_names() %>% 
+  group_by(country) %>% 
+  mutate(life_exp_change = life_exp - life_exp[year == min(year)]) %>% 
+  ungroup() %>% 
+  group_by(year) %>% 
+  mutate(life_exp_gap = max(life_exp) - life_exp) %>% 
+  ungroup()
+```
+
+### filter on groups?
+
+```{r}
+gapminder %>% 
+  clean_names() %>% 
+  filter(life_exp == max(life_exp))
+
+gapminder %>% 
+  clean_names() %>% 
+  group_by(year) %>% 
+  filter(life_exp == max(life_exp)) %>% 
+  ungroup() %>% 
+  ggplot(mapping = aes(x = year, 
+                       y = life_exp)) +
+  geom_point(mapping = aes(color = country),
+             size = 3) 
+```
+
+###
+
+
+
+
+
+
+
+
