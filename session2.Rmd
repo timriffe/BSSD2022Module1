@@ -136,27 +136,170 @@ gapminder %>%
   ungroup()
 ```
 
+#### note on selection in vectors
+
+Use square brackets to select from vectors. This works just the same inside `mutate()`, which is what we're doing with `life_exp[year == min(year)]`. In this case `life_exp` and `year` are the same length, and the logical expression produces a `TRUE` or `FALSE` for each value. In this case, there is only one value that satisfies the condition (one max).
+```{r}
+a <- rnorm(10)
+a[a > 0]
+a[a == max(a)]
+max(a)
+
+b <- runif(10)
+a[b > .5]
+```
+
 ### filter on groups?
 
+The first one picks out the row of data with the highest life expectancy. The second one does the same filter operation but after groups were declared, so we get one value (row) per group. Then we view the line because it's rather famous.
 ```{r}
 gapminder %>% 
   clean_names() %>% 
   filter(life_exp == max(life_exp))
 
 gapminder %>% 
+  # first clean up the names
   clean_names() %>% 
+  
+  # the declare independent groups
   group_by(year) %>% 
+  
+  # filter down to just the highest life expectancy
+  # per year
   filter(life_exp == max(life_exp)) %>% 
+  
+  # remove the groups
   ungroup() %>% 
+  
+  # plot the result
   ggplot(mapping = aes(x = year, 
                        y = life_exp)) +
   geom_point(mapping = aes(color = country),
              size = 3) 
 ```
 
-###
+### `summarize()`
+
+`summarize()` usually reduces the number of rows in your data. Usually you would use it to aggregate, or tabulate, or produce summary statistics of some kind. You can use it within groups or not. If there are no groups, you'll end up with just one row.
+```{r}
+gapminder %>% 
+  clean_names() %>% 
+  summarize(total_pop = sum(pop))
+
+gapminder %>% 
+  clean_names() %>% 
+  group_by(year) %>% 
+  summarize(
+     gdp = sum(pop * gdp_percap),
+     pop = sum(pop)) %>% 
+  ggplot(mapping = aes(x = year, y = gdp)) +
+  geom_line()
+```
+
+Exercise: Make a plot of how GDP has changed over time for each continent in the data.
+
+```{r}
+gapminder %>% 
+  clean_names() %>% 
+  # create GDP summary stat per unique combo of year and continent
+  # 1) declare groups
+  group_by(continent,year) %>% 
+  # 2) do the summary stat
+  summarize(gdp = sum(pop * gdp_percap),
+            .groups = "drop") %>% # same as following with ungroup()
+                                  # but no annoying messages to console
+  ggplot(mapping = aes(x = year,
+                       y = gdp)) +
+  geom_line(mapping = aes(color = continent))+
+  scale_y_log10()
+```
+
+### toggling between wide and long and back again
+
+We could stack all of the numeric columns like so. But then we need to give them rather general column names to store the data, because the units and concepts are just so different. The main arguments are to specify a column range, then destination columns where we collect the names (from the header) and the values.
+```{r}
+gapminder %>% 
+  clean_names() %>% 
+  pivot_longer(c(gdp_percap, life_exp, pop),
+               names_to = "variable",
+               values_to = "value") #%>% 
+  ## go back again
+  # pivot_wider(names_from = variable,
+  #             values_from = value)
+```
 
 
+Here we spread out years in the columns, necessarily concatenated with the variable names, which sort of simulates how statistical agencies often deliver data. Sometimes in highly formatted spreadsheets. We can stack it as needed using `pivot_longer()`, giving two new variables names to store the old column labels. We split them using a separator character (`names_sep`). That was convoluted in the first instance because we used `_` for everything. But using a `:` is works easy peasy. Finally, you need to spread the original variable names back out over the columns.
+```{r}
+gapminder %>% 
+  clean_names() %>% 
+  pivot_wider(names_from = year,
+              values_from = c(gdp_percap, life_exp, pop),
+              names_sep = ":") %>% 
+  # 3:ncol(.) specifies a column range based on position
+  pivot_longer(3:ncol(.),
+               names_to = c("variable", "year"),
+               values_to = "value",
+               names_sep = ":") %>% 
+  # final step to get back to what we started with
+  pivot_wider(names_from = variable,
+              values_from = value)
+```
+
+Note to self: include the convoluted solution after class (i.e. where everything is underscore separated)
+
+## Main data exercise for today
+
+Download the data linked in the Google Doc and save it in a folder in your project workspace called `Data`.
+
+```{r}
+library(haven)
+tu <- read_sav("Data/caseid_aggr.sav")
+dim(tu)
+head(tu[, 1:20])
+```
+
+Create a potentially instrumental data object to store the activity codes and labels:
+
+```{r}
+activities <- 
+  tu %>% 
+  # pull() extracts a column to a vector
+  pull(time_300_max) %>% 
+  
+  # unique() asks what are the actual values present
+  # in the vector
+  unique() %>% 
+  
+  # extract the label attribute. Now we have a vector
+  # of codes (numeric) with activity labels, seems like
+  # it could be useful
+  attr("labels")
+
+activities
+```
+
+Down sample for the purpose of designing the pipeline, which is iterative in nature. Meaning that as we try things, we keep re-running it.
+```{r}
+tu2 <- 
+  tu %>% 
+  sample_n(1000)
+```
+`sample_n()` takes a random sample of rows from the data.
+
+```{r}
+# how many minutes are in a day??
+60*24
+
+tu3 <-
+  tu2 %>% 
+  pivot_longer(time_1_max:ncol(.),
+               #time_1_max:time_1440_max,
+               names_to = "time",
+               values_to = "activity") %>% 
+  select(WT06, time, activity)
+
+```
 
 
 
