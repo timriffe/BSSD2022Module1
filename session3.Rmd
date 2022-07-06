@@ -67,28 +67,33 @@ tu2 <-
   select(WT06, time, activity) %>% 
   # pick out the integer in the middle of the names
   mutate(time = parse_number(time)) %>% 
-  
   # pick out every 10th minute (optional, it's just a choice)
   filter(time %% 10 == 1) %>% 
-  
   # declare independent groups of time and activity
   group_by(time, activity) %>% 
-  
   # aggregate weights within these groups
   summarize(n = sum(WT06)) %>% 
-  
   # now group by time in order to calculate 
   # frequencies at each time point
   group_by(time) %>% 
-  
   # calculate frequencies
   mutate(freq = n / sum(n)) %>% 
-  
   ungroup() %>% 
-  
   mutate(activity = factor(activity,
                       levels = activities,
                       labels = names(activities)))
+tu2
+```
+
+## now plot it!
+
+```{r}
+library(colorspace)
+tu2 %>% 
+  ggplot(mapping = aes(x = time, y = freq, fill = activity)) +
+  geom_area() +
+  # scale_fill_brewer(type = "qual")
+  scale_fill_discrete_qualitative("Set3")
 ```
 
 How we calculate relative frequencies, aka proportions or fractions. This is of course premised on positive values. This is what we're doing with weights, where each activity has a weight, and we repeat this step within each time point.
@@ -98,6 +103,7 @@ a <- runif(10)
 a / sum(a)
 ```
 
+NOTE TO SELF: include an example of explicitly reordering factor categories
 
 NOTE TO SELF: explain why we needed `set.seed()`
 
@@ -123,4 +129,110 @@ tibble(deaths = rpois(101, lambda = 50),
   group_by(age5) %>% 
   summarize(deaths = sum(deaths))
 ```
+
+## Functions
+
+The main pieces of a function, when we write our own.
+1. it's name, which is just a subjective choice, but it's a good idea to make function names that are somehow easy to predict what the function is going to do. Or that are somehow intuitive.
+2. assign `function(){}` to it.
+3. comma-separate your arguments in `()`
+4. choose argument names that make sense to you and others.
+5. the arguments are free variables that you can use and work with inside the function body.
+6. everything inside of `{}` is the function body.
+7. what happens inside `{}` is free for you to choose. It could be ugly. It could be parsimonious. it doesn't matter, as long as it produces the result you need. In a reliable way.
+8. `return()` specifies what the function will spit out.
+
+```{r}
+hello <- function(your_name){
+  
+  my_message <- paste0("Hello ", your_name,". Have a nice day!")
+  return(my_message)
+}
+
+hello("Harry Potter")
+paste0("a", "b", "c")
+```
+
+```{r}
+a_numerical_example <- function(x, y, z){
+  x * y + z ^ 2
+}
+a_numerical_example(45,2,.9)
+
+
+```
+
+## The lifetable identities
+
+```{r}
+
+omega <- 110
+x     <- 0:omega
+a     <- 0.00022
+b     <- 0.07
+mx    <- a * exp(x * b)
+ax    <- rep(.5, length(mx))
+```
+$m(x)$ we invent to have something to work with. It stands for mortality rates ina ge intervals.
+
+$a(x)$ is an instrumental variable. It is interpreted as the average time spent in an age interval by those that don't make it to the end. We use it to convert $m(x)$ into $q(x)$.
+
+$q(x)$ is the probability of dying in an age interval, give that we survive to the start of the age interval.
+
+$$ q(x) = \frac{m(x)}{1 + (1 - a(x)) \cdot m(x)}$$
+```{r}
+mx_to_qx <- function(mx, ax){
+  qx <- mx / (1 + (1 - ax) * mx)
+  return(qx)
+}
+# demonstrate usage:
+qx <- mx_to_qx(mx, ax)
+```
+
+The probabilities are a bit easier to work with to derive the remaining columns of the lifetable. We can convert them to survival probabilities $p(x)$ by just taking the complement of $q(x)$
+
+$$  p(x) = 1 - q(x) $$
+```{r}
+qx_to_px <- function(qx){
+  px <- 1 - qx
+  return(px)
+}
+px <- qx_to_px(qx)
+# mx_to_qx(mx, ax) %>% 
+#   qx_to_px()
+
+```
+
+
+Survivorship, i.e. the probability of surviving from birth until a given age, $\ell(x)$
+
+$$ \ell(x)  =\prod_{i=0}^{x-1} p(i)$$
+There a function called `cumprod()` that you might want to check out
+
+```{r}
+px_to_lx <- function(px, radix = 1){
+  n <- length(px)
+  lx <- c(1,cumprod(px))
+  
+  # this step is bookkeeping, making sure the output
+  # vector is of the same length.
+  lx <- lx[1:n]
+  return(radix * lx)
+}
+px_to_lx(px)
+```
+
+
+
+Lifetable deaths, $d(x)$, are:
+
+$$ d(x) = \ell(x) \cdot q(x)$$
+
+
+
+
+
+
+
+
 
