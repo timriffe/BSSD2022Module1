@@ -103,16 +103,39 @@ a <- runif(10)
 a / sum(a)
 ```
 
-NOTE TO SELF: include an example of explicitly reordering factor categories
+### explicit factor reordering
 
-NOTE TO SELF: explain why we needed `set.seed()`
+Here's a trick to do that; I we use `fct_relevel()` from the `forcats` package (which actually already was loaded via `tidyverse`). Just be sure to list all the labels in the order you want them stacked.
 
-A note on random number generation. Do
+```{r}
+library(forcats)
+activities
+tu2 %>% 
+  mutate(activity = fct_relevel(activity, c("Eat", "Childcare activities", "Care adult", "Personal care", "TV","Leisure","Housework", "Travel","Work", "Education","Other"))) %>% 
+  ggplot(mapping = aes(x = time, y = freq, fill = activity)) +
+  geom_area() +
+  # scale_fill_brewer(type = "qual")
+  scale_fill_discrete_qualitative("Set3")
+```
+
+
+
+
+### using `set.seed()`
+
+A note on random number generation. As we were producing the above pipeline, we were all ending up with different numbers of rows in the final dataset. This was because `sample_n()` takes a random sample of rows, and we were all getting different random numbers! The `set.seed()` function can be used to anchor the random number series at a certain point, which can ensure we all get the same random numbers.
 ```{r}
 set.seed(2022)
 sample(letters, 10, replace = FALSE)
+# different
+sample(letters, 10, replace = FALSE)
+set.seed(2022)
+# same again
+sample(letters, 10, replace = FALSE)
 ```
+Using `set.seed()`, we were therefore able to ensure identical results. In the end, you would remove the random row selection anyway, for an unfiltered result, but this is a useful trick in some other instances, especially simulation results.
 
+### modulo
 A note on using modulo operator to select rows. It can be handy from time to time.
 ```{r}
 A <- tibble(a = letters[1:10], b = 0:9)
@@ -122,7 +145,7 @@ A %>%
 
 age <- 0:100
 age - age %% 5
- rpois(10)
+
 tibble(deaths = rpois(101, lambda = 50),
        age = 0:100) %>% 
   mutate(age5 = age - age %% 5) %>% 
