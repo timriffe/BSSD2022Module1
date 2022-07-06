@@ -248,6 +248,41 @@ gapminder %>%
 
 Note to self: include the convoluted solution after class (i.e. where everything is underscore separated)
 
+Here's that approach:
+
+```{r}
+gapminder %>% 
+  clean_names() %>% 
+  pivot_wider(names_from = year,
+              values_from = c(gdp_percap, life_exp, pop)) %>% 
+  pivot_longer(3:ncol(.),
+               names_to = c("variable_year"),
+               values_to = "value") %>% # notice to sep given
+  # we end up w irregular counts of _ in names
+  mutate(year = parse_number(variable_year),
+         # select character position range, see example below:
+         variable = substr(variable_year, 1, (nchar(variable_year) - 5))) %>% 
+  select(-variable_year) %>% 
+  # final step to get back to what we started with
+  pivot_wider(names_from = variable,
+              values_from = value)
+```
+
+This is how the variables names are parsed
+```{r}
+a <- "Timothy"
+nchar(a) # how many characters?
+substr(a, 2, 4) # extract postion 2 until 4
+
+# accounts for our variable naming convention
+b <- c("life_exp_1952","pop_1952")
+substr(b, 1, nchar(b) - 5)
+
+# regex could also get you part-way there.
+gsub('[0-9]+', '', b)
+```
+A comment on that sort of solution: sometimes you need to just try weird stuff to get things to work, and that's fine. You learn useful tricks this way, and it's not a waste of your time. But, really, don't we wish we had a function called `parse_letter()` that sort of does the opposite of `parse_number()`? Indeed such a function exists out there somewhere in someone's package. In this case, we were better to abandon the hackish approach and instead just specify a unique column separator.
+
 ## Main data exercise for today
 
 Download the data linked in the Google Doc and save it in a folder in your project workspace called `Data`.
@@ -288,6 +323,7 @@ tu2 <-
 `sample_n()` takes a random sample of rows from the data.
 
 Let's stack the different minute observations to make this data more pliable. We collect all columns from the one called `time_1_max` (4:00) until whatever the final column is. Column names go to a new column called `time` and the activity codes go to a column called `activity`
+
 ```{r}
 # how many minutes are in a day??
 60*24
