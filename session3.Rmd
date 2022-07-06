@@ -1,0 +1,63 @@
+---
+title: "Session notes day 2"
+author: "Tim Riffe"
+date: '2022-07-05'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Tuesday's worked example
+
+I'll start by condensing the progress we made as of yesterday, so that we have everything in one place.
+
+Load some packages we'll probably need:
+```{r}
+library(tidyverse)
+library(haven)
+library(janitor)
+```
+
+Read in the data. How big is it? What column-naming conventions does it follow?
+```{r}
+tu <- read_sav("Data/caseid_aggr.sav")
+dim(tu)
+head(tu[, 1:20])
+```
+
+Siphon off the activity codes and labels, as we'll want these to make sense of the data later.
+```{r}
+activities <- 
+  tu %>% 
+  # pull() extracts a column to a vector
+  pull(time_300_max) %>% 
+  
+  # unique() asks what are the actual values present
+  # in the vector
+  unique() %>% 
+  
+  # extract the label attribute. Now we have a vector
+  # of codes (numeric) with activity labels, seems like
+  # it could be useful
+  attr("labels")
+
+activities
+```
+
+We should down-sample this in order to develop the pipeline. Then pivot to longer
+
+```{r}
+tu2 <- 
+  tu %>% 
+  # I made this even smaller
+  sample_n(600) %>% 
+  # Now pivot longer and just keep the columns we need to move on
+  pivot_longer(time_1_max:ncol(.),
+               #time_1_max:time_1440_max,
+               names_to = "time",
+               values_to = "activity") %>% 
+  select(WT06, time, activity)
+```
+
