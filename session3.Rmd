@@ -219,7 +219,7 @@ px_to_lx <- function(px, radix = 1){
   lx <- lx[1:n]
   return(radix * lx)
 }
-px_to_lx(px)
+lx <- px_to_lx(px)
 ```
 
 
@@ -243,6 +243,76 @@ qxlx_to_dx <- function(qx, lx){
 }
 
 ```
+
+$L(x)$ is lifetable **exposure**, i.e. the total years lived in an age interval by those that start in the interval.
+$$ L(x) = \ell(x) -(1 - a(x)) \cdot d(x)$$
+
+```{r}
+lxdx_to_Lx <- function(lx, dx, ax){
+  Lx <- lx - (1 - ax) * dx
+  return(Lx)
+}
+lx <- px_to_lx(px)
+dx <- qx_to_dx(qx)
+Lx <- lxdx_to_Lx(lx = lx, ax = ax, dx = dx)
+```
+
+You can get back the rates we started with like so: (no need to implement this, but you can check if you want)
+$$ m(x) = d(x) \cdot L(x)$$
+$T(x)$ are all the years left to be lived by those alive at a given age. The remaining years of life of the whole lifetable population at a particular age.
+
+$$T(x) = \sum_{i=x}^\omega L(i)$$
+
+```{r}
+Lx %>% rev() %>% cumsum() %>% rev()
+Lx_to_Tx <- function(Lx){
+  Tx <- Lx %>% 
+    rev() %>% 
+    cumsum() %>% 
+    rev()
+  return(Tx)
+}
+```
+
+Life expectancy at each age is $e(x)$, is calculated as:
+
+$$e(x) = \frac{T(x)}{\ell(x)}$$
+```{r}
+Txlx_to_ex <- function(Tx, lx){
+  ex <- Tx / lx
+  return(ex)
+}
+Tx <- Lx_to_Tx(Lx)
+Txlx_to_ex(Tx, lx)
+```
+
+
+Let's piece these little steps into a full-service lifetable function.
+
+We have written direct implementations of the standard step-by-step lifetable calculation steps. We talked about what the different transformations mean, but really this is all about rote implementation of prescribed formulas. And we should get a sense of how straightforward it might be to create a function to implement someone's formula in a paper. Indeed, that might be a path to understand the method. An alternative, or complement to paper and pencil. Plus if you do it, then you can visualize as you go and get a sense of things.
+
+So, or strategy was NOT to look at the entirety of the lifetable functions at once, but rather to do it one piece at a time, and to understand things one step at a time. We then use the functions together in our tidyverse framework to show how code modularity can make big tasks into small ones.
+
+```{r}
+lifetable <- tibble(age = x,
+                    mx = mx,
+                    ax = ax) %>% 
+  mutate(qx = mx_to_qx(mx = mx, ax = ax),
+         px = qx_to_px(qx = qx),
+         lx = px_to_lx(px = px, radix = 100000),
+         dx = qxlx_to_dx(qx = qx, lx = lx),
+         Lx = lxdx_to_Lx(lx = lx, dx = dx, ax = ax),
+         Tx = Lx_to_Tx(Lx),
+         ex = Txlx_to_ex(Tx = Tx, lx = lx))
+lifetable %>% 
+  ggplot(aes(x = age, 
+             y = ex)) +
+  geom_line() 
+```
+
+
+
+
 
 
 
