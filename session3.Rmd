@@ -228,6 +228,22 @@ Lifetable deaths, $d(x)$, are:
 
 $$ d(x) = \ell(x) \cdot q(x)$$
 
+Two versions: first, which starts from $q(x)$, then it uses the little functions we already made to jump all the way to $d(x)$. The next one assumes we already have the pieces we need ($q(x)$ and $d(x)$).
+```{r}
+qx_to_dx <- function(qx, radix = 1){
+  px <- qx_to_px(qx)
+  lx <- px_to_lx(px = px, radix = radix)
+  dx <- qx * lx
+  return(dx)
+}
+
+qxlx_to_dx <- function(qx, lx){
+  dx <- qx * lx
+  return(dx)
+}
+
+```
+
 
 
 
