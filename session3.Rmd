@@ -24,6 +24,7 @@ Read in the data. How big is it? What column-naming conventions does it follow?
 ```{r}
 tu <- read_sav("Data/caseid_aggr.sav")
 dim(tu)
+
 head(tu[, 1:20])
 ```
 
@@ -49,15 +50,77 @@ activities
 We should down-sample this in order to develop the pipeline. Then pivot to longer
 
 ```{r}
+60 * 24
+colnames(tu) %>% rev()
+set.seed(1)
 tu2 <- 
   tu %>% 
   # I made this even smaller
   sample_n(600) %>% 
   # Now pivot longer and just keep the columns we need to move on
-  pivot_longer(time_1_max:ncol(.),
+  pivot_longer(ends_with("max") & starts_with("time"),
+               # contains("max"),
+               #time_1_max:(ncol(.)-1),
                #time_1_max:time_1440_max,
                names_to = "time",
                values_to = "activity") %>% 
-  select(WT06, time, activity)
+  select(WT06, time, activity) %>% 
+  # pick out the integer in the middle of the names
+  mutate(time = parse_number(time)) %>% 
+  
+  # pick out every 10th minute (optional, it's just a choice)
+  filter(time %% 10 == 1) %>% 
+  
+  # declare independent groups of time and activity
+  group_by(time, activity) %>% 
+  
+  # aggregate weights within these groups
+  summarize(n = sum(WT06)) %>% 
+  
+  # now group by time in order to calculate 
+  # frequencies at each time point
+  group_by(time) %>% 
+  
+  # calculate frequencies
+  mutate(freq = n / sum(n)) %>% 
+  
+  ungroup() %>% 
+  
+  mutate(activity = factor(activity,
+                      levels = activities,
+                      labels = names(activities)))
+```
+
+How we calculate relative frequencies, aka proportions or fractions. This is of course premised on positive values. This is what we're doing with weights, where each activity has a weight, and we repeat this step within each time point.
+```{r}
+set.seed(1)
+a <- runif(10)
+a / sum(a)
+```
+
+
+NOTE TO SELF: explain why we needed `set.seed()`
+
+A note on random number generation. Do
+```{r}
+set.seed(2022)
+sample(letters, 10, replace = FALSE)
+```
+
+A note on using modulo operator to select rows. It can be handy from time to time.
+```{r}
+A <- tibble(a = letters[1:10], b = 0:9)
+A$b %% 3 == 0
+A %>% 
+  filter(b %% 3 == 0)
+
+age <- 0:100
+age - age %% 5
+ rpois(10)
+tibble(deaths = rpois(101, lambda = 50),
+       age = 0:100) %>% 
+  mutate(age5 = age - age %% 5) %>% 
+  group_by(age5) %>% 
+  summarize(deaths = sum(deaths))
 ```
 
