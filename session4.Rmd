@@ -1,0 +1,232 @@
+---
+title: "Session notes day 4"
+author: "Tim Riffe"
+date: '2022-07-07'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Today's session was as series of somewhat ad hoc examples that were selected to force us to use `tidy` data operations that we saw Tuesday, and to apply the functions we wrote Wednesday. The new concepts that we were originally planned for today (for loops and if statements) will instead be introduced on Wednesday. We will also practice everything we learned so far, and introduce a new dataset that can be analyzed independetly or merged with the HMD data to analyze jointly.
+
+We begin with completing yesterday's exercise:
+
+I copied the functions we wrote yesterday all nice and clean into an `R` script called `my_functions.R`. We can execute that script from here. Doing so will load all those functions and make them available to us. It's sort of like doing `library(package)`
+```{r}
+source("my_functions.R")
+# source("/home/tim/ETC/Academia/Nerdery/my_functions.R")
+```
+
+Exercise: read in the HMD data, then calculate lifetables for all combinations of country, year, and sex. The result will have the same number of rows, but more columns, i.e. all the lifetable columns.
+```{r}
+library(tidyverse)
+library(janitor)
+
+hmd <- 
+  readRDS("Data/HMD.rds") %>% 
+  # move to lowercase
+  clean_names() %>% 
+  # declare independent groups
+  group_by(country, sex, year) %>% 
+  # go through the lifetable steps
+  mutate(qx = mx_to_qx(mx = mx, ax = ax),
+         lx = px_to_lx(px = 1 - qx, 
+                       radix = 100000),
+         #dx = lx * qx
+         dx = qx_to_dx(qx = qx),
+         Lx = lxdx_to_Lx(lx = lx, 
+                         dx = dx, 
+                         ax = ax),
+         Tx = Lx_to_Tx(Lx = Lx),
+         ex = Txlx_to_ex(Tx = Tx, lx = lx)) %>% 
+  ungroup()
+hmd %>% str()
+head(hmd)
+```
+I knew the names and arguments of these functions mostly by eyeballing the Environment panel in RStudio, which gave a manageable overview. It certainly wasn't because I had them memorized.
+
+Step 2: Life expectancy at birth is just the value of `ex` at age 0. Can you plot how it has changed over time for all the countries in this database? hint: filter to age 0, and decide how to handle sex and country in the plot (facet, color? idk, your choice). Recall the function `facet_wrap()`.
+
+```{r}
+hmd %>% 
+  filter(age == 0) %>% 
+  ggplot(mapping = aes(x = year, y = ex, group = country)) +
+  geom_line(alpha = .1) +
+  facet_wrap(~sex)
+```
+We commented features of this graph, which inspired the following exercises. Mostly what's behind all those shocks: wars, pandemics, famines, and so on.
+
+
+Step 3: can we figure out which countries have 1918 in their series, and calculate what their life expectancy drops were in that fateful year? Tips:
+filter down to just years, e.g. 1917, 1918, 1919, 1920, and age 0, and select just the variables for country, year, sex, ex. Then move ex by years into columns using `pivot_wider()`, then you can calculate differences (gaps) in `mutate()`. I'll show you another way to do this operation that avoids `pivot_wider()` also.
+
+```{r}
+e0chg <-
+  hmd %>% 
+  # cut down the data to only those countries with observations between the 
+  # years of interest; and age 0
+  filter(between(year, 1916, 1920),
+         age == 0) %>% 
+  # select the interesting columns for this exercise, just
+  # to be able to visually examine the output easier
+  select(country, sex, year, ex) %>% 
+  
+  # declare groups (because lead() and lag() look up and down 
+  # and so need to know to stop when they hit a group)
+  group_by(country, sex) %>% 
+  
+  # calculate the change (year on year) using the trick below
+  mutate(e0change = ex - lag(ex)) %>% 
+  
+  # remove invalid comparisons, see is.na() demonstration below
+  filter(!is.na(e0change)) %>% 
+  
+  ungroup()
+```
+
+Take a look at results
+```{r}
+e0chg %>% 
+  filter(country != "BEL") %>% 
+  ggplot(aes(x = year, 
+             y = e0change, 
+             color = sex,
+             linetype = sex)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~ country)
+```
+What strikes me about these plots is on the one hand the magnitude of the life expectancy drop, and on the other hand the even-bigger rebounds just one year later. Why is the rebound so big? Is it that the war was over too, such that the year-on-year comparisons in this year-range miss the pre-war mortality levels? Maybe that's it. Can you change the code to make the time series start before WWI?
+
+Notes on some of the tricks used above to calculate e0 changes. `lead()` and `lag()` are nice helpers. Always verify your results to make sure things line up the way you need. I always get it on my third try or so.
+```{r}
+a <- letters[1:10]
+lead(a)
+lag(a)
+tab <- tibble(year = 1917:1920,
+              value = c(65,59,66,67)) %>% 
+  mutate(change = value - lag(value) ) 
+
+# filter a year range
+filter(between(year, 1916, 1920))
+# identical
+filter(year >= 1916 & year <= 1920)
+```
+
+Step 4. Pick one of the extreme cases for a 1918 drop. Just one country, but both men and women. Calculate the ratio of 1918 mortality to the average 1913-17. `mean()`. `bind_rows()`. I charted the steps of this operation on the chalk board. Did that help? There were a couple details to manage here. Below this chunk I'll give a less convoluted way to get this done.
+
+
+```{r}
+ref_mx <-
+  hmd %>% 
+  # filter down to 5 years we need; just one country here
+  filter(country == "ITA",
+         between(year, 1913, 1917)) %>% 
+  
+  # we want means within age and sex
+  group_by(sex, age) %>% 
+  
+  # overwrite mx with the mean of the 5 values in each subset
+  summarize(mx = mean(mx)) %>% 
+  ungroup() %>% 
+  
+  # create a new year column that can differentiate
+  # between 1918 year, for purposes of binding and pivoting
+  mutate(year = "ref")
+
+mx_1918 <-
+  hmd %>% 
+  # filter to single year/country to compare
+  filter(country == "ITA",
+         year == 1918) %>% 
+  # select needed columns (same names as above)
+  select(year, sex, age, mx) %>% 
+  # coerce to same data type:
+  mutate(year = as.character(year))
+
+mx_compare <-
+  # bind together
+  bind_rows(mx_1918, ref_mx) %>% 
+  # put values next to each other
+  pivot_wider(names_from = year, values_from = mx)
+
+mx_compare %>% 
+  ggplot(aes(x = age, y = `1918` / ref, color = sex)) +
+  geom_line()
+ 
+```
+
+
+How to bind rows (columns need to match names and types):
+```{r}
+A <- tibble(x = letters[1:5], y = 1:5)
+B <- tibble(x = letters[6:10], y = runif(5))
+
+bind_rows(A, B)
+```
+
+Step 5. New exercise. Make a scatterplot of e0 vs a dispersion measure for all country-year-sex combinations in the data.
+
+For this, we install the `LifeIneq` package from `github` (Alyson and I are planning to work on this in October and get it sent to CRAN, stay tuned!). Once installed (using the remotes package), you can load it using `library()`. Check out `?ineq` for usage tips. Different methods can have different age patterns. Here the trick, since we need all the ages, is to calculate for the whole collection, and then filter down to age 0, then just make the scatterplot with $e(0)$ in x and your disparity measure in y.
+
+```{r}
+# install.packages("remotes")
+# library(remotes)
+# install_github("timriffe/LifeIneq")
+library(LifeIneq)
+
+hmd %>% 
+  group_by(country, year, sex) %>% 
+  # mutate works because ineq() returns a full 
+  # vector of the same length (i.e. same number of elements
+  # as each chunk has rows)
+  mutate(lt_cov = ineq(age = age, 
+                       dx = dx, 
+                       lx = lx, 
+                       ex = ex, 
+                       ax = ax, 
+                       
+                       # you can change the method to various
+                       # choices
+                       method = "edag")) %>% 
+  ungroup() %>% 
+  filter(age == 0) %>% 
+  ggplot(mapping = aes(x = ex, y = lt_cov)) +
+  geom_point(alpha = .1) +
+  facet_wrap(~sex)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+library(tidyverse)
+library(janitor)
+hfd <- 
+  read.table(file = "Data/asfrRR.txt", 
+             header = TRUE, 
+             skip = 2, 
+             na.strings = ".", 
+             as.is = TRUE) %>% 
+  clean_names() %>% 
+  mutate(age = parse_number(age)) 
+```
+
+
+
+
