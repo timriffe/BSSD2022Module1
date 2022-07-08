@@ -42,8 +42,7 @@ hmd <-
          Tx = Lx_to_Tx(Lx = Lx),
          ex = Txlx_to_ex(Tx = Tx, lx = lx)) %>% 
   ungroup()
-hmd %>% str()
-head(hmd)
+
 ```
 I knew the names and arguments of these functions mostly by eyeballing the Environment panel in RStudio, which gave a manageable overview. It certainly wasn't because I had them memorized.
 
