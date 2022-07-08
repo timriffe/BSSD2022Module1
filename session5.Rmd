@@ -86,11 +86,155 @@ hfd %>%
   right_join(lookup, by = "code")
 ```
 
+## plainold `if`
+
+Sometimes `A`, `B` and `D` will appear, other times not. It depends on whether `a[1]` is greater than .5, and it was randomly generated.
+
+The structure of and `if` statement is as follows:
+1. `if` starts it off
+2. on the same line `(condition)` something that will evaluate to TRUE or FALSE. Just one value. You could call this a trigger.
+3. `{ }` separates the code to be conditionally executed.
+```{r}
+
+if (a[1] > .5){
+
+  A <- 25^a[1]
+  B <- mean(a[-1])
+
+  D <- A * B
+}
+```
+
+What if we want to also have an alternate code chunk `{ }` inside another set of curly braces, then you can set this off with `else`. Further, these things can be nested to your heart's desire.
+
+```{r}
+
+# Calculate A, B and D if the value < .5
+# first chunk
+if (a[1] < .5){
+
+  A <- 25^a[1]
+  B <- mean(a[-1])
+
+  D <- A * B
+  if (D > 100){
+    print("yay")
+  } else {
+    print("boo")
+  }
+ # first chunk ends here
+} else { # what we do if value >= .5
+  A <- sd(a)
+} # ends the big if - else code 
+```
+
+```{r}
+
+print("This code chunk was blocked off")
+library(lubridate)
+
+if (today() %>% weekdays() == "Friday"){
+# some slow heavy code here
+
+
+# slow heavy code ends here
+}
+```
+## for -loops
+
+A for-loop specifies an iterator, i.e. a value that changes in sequence, and being drawn from the elements of a vector. In this case, we're picking out letters, in order, from the Base R object called `letters`. The variable that changes in each iteration we called `letter` (singular). You can then use the iterator (or not) as you please within the loop. `{}` demarks the body of the code that is being iteratively executed.
+
+```{r}
+for (i in letters){
+  plot(.5,.5, ylim = c(0,1), xlim = c(0,1), pch = i, cex = 10)
+  Sys.sleep(.5)
+  # repeat this code for each element of the iterator
+}
+```
+
+Calculate the cumulative fertility rate for a population and year; Here the iterator is used to index positions in the vector that we need to calulate the result, as well as in the vector where we store the results. We sum the current value of `asfr` and the previous value of `casfr` in order to get the current value of `casfr`.
+```{r}
+BEL2015 <-
+  hfd %>% 
+  filter(code == "BEL",
+         year == 2015)
+asfr <- BEL2015$asfr
+casfr <- asfr * NA
+casfr[1] <- asfr[1]
+
+for (age_i in 2:length(asfr)){
+  casfr[age_i] <- casfr[age_i - 1] + asfr[age_i]
+}
+asfr[1:10]
+for (i in 1:length(asfr)){
+  casfr[i] <- sum(asfr[1:i])
+}
+# identical
+# cumsum(asfr)
+```
+
+Tiny exercise. Calculate TFR for all HFD countries and years.
+
+```{r}
+tfr_looped <-
+  hfd %>% 
+  select(code, year) %>% 
+  distinct() %>% 
+  mutate(TFR = NA)
+
+# i is a position index, we go down the rows of tfr_looped
+for (i in 1:nrow(tfr_looped)){
+  # select the current code and year
+  this_code <- tfr_looped$code[i]
+  this_year <- tfr_looped$year[i]
+  
+  # extract the data chunk we're at
+  chunk     <- hfd %>% 
+                 filter(code == this_code,
+                        year == this_year)
+  
+  # calculate the TFR
+  TFRi <- sum(chunk$asfr)
+  
+  # assign it to it's position in the container
+  tfr_looped$TFR[i] <- TFRi
+}
+
+```
+Let's contrast with the tidy approach to doing the same and look at pros and cons:
+
+```{r}
+tfr_tidy <-
+  hfd %>% 
+  group_by(code, year) %>% 
+  summarize(TFR = sum(asfr),
+            .groups = "drop")
+
+tfr_tidy %>% View()
+tfr_looped %>% View()
+```
+
+Pros of loops: 
+1. it's easy to spot check what would happen at a particular iteration. So good for checking but also for investigating pathological cases.
+2. non-`R` programmers can look at it and know what it's doing. It's a little more universal in nature and translatable.
+
+Cons of loops:
+1. they take a lot of set-up and possibly also planning
+2. possible ambiguity about whether an iterator is being used to index a position (like us) or as an actual value
+3. quite verbose and cluttery.
+
+Pros of tidy approach in this case:
+1. far more compact
+2. easier to remember how to write it
+3. easy to verbalize and wrap your mind around
+4. more standard forms
+5. easier to spot problems
 
 
 
 
-## funny encoding issue for Lucie, to be resolved later
+
+## NOTE: funny encoding issue for Lucie, to be resolved later
 ```{r}
 default_locale()
 ```
