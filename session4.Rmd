@@ -35,7 +35,7 @@ hmd <-
          lx = px_to_lx(px = 1 - qx, 
                        radix = 100000),
          #dx = lx * qx
-         dx = qx_to_dx(qx = qx),
+         dx = qx_to_dx(qx = qx, radix = 100000),
          Lx = lxdx_to_Lx(lx = lx, 
                          dx = dx, 
                          ax = ax),
@@ -198,35 +198,3 @@ hmd %>%
   facet_wrap(~sex)
 
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-```{r}
-library(tidyverse)
-library(janitor)
-hfd <- 
-  read.table(file = "Data/asfrRR.txt", 
-             header = TRUE, 
-             skip = 2, 
-             na.strings = ".", 
-             as.is = TRUE) %>% 
-  clean_names() %>% 
-  mutate(age = parse_number(age)) 
-```
-
-
-
-
