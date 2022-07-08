@@ -1,0 +1,100 @@
+---
+title: "Session notes day 5"
+author: "Tim Riffe"
+date: '2022-07-08'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Read in some new data
+
+Read in our example data for today, which in the first instance will serve as a prop for demonstrating `if` and `for` concepts.
+```{r}
+library(tidyverse)
+library(janitor)
+hfd <- 
+  read.table(file = "Data/asfrRR.txt", 
+             header = TRUE, 
+             skip = 2, 
+             na.strings = ".", 
+             as.is = TRUE) %>% 
+  clean_names() %>% 
+  mutate(age = parse_number(age)) 
+```
+
+## if
+
+```{r}
+a <- runif(10)
+if_else(a > .5, .8, .2)
+a > .5
+if_else(a > .5, true = "A", false = "B")
+```
+
+## nested if-else, 
+You see it on the street, but just say no
+
+This works, but it's laborious to write, and also a bit hard to read.
+We show it so you understand it when you see others do it. But don't do it.
+```{r}
+ifelse(a > .8,  .8,
+        ifelse(a > .6,  .6,
+                ifelse(a > .4,  .4, NA)))
+```
+
+Another:
+
+Design a `case_when()` recode to go from specific to general conditions. Each test is comma separated; and there is a left (logical test) and right (result) separated by `~`. Be sure to account for ALL cases that might be in the data. The catch-all at the end is to force any **leftovers** to be `TRUE` and give them some value. If you don't account for the **leftovers** then you jsut get NAs back. If you explicitly account for things that need to be `NA`, then you need to match the `NA` type (e.g. `NA_real_`, and for this it's just best to use autocomplete).
+```{r}
+case_when(
+  a > .8 ~ .8,
+  a > .6 ~ .6,
+  a > .4 ~ .4
+  TRUE ~ 0.1
+)
+```
+## recoding many things
+
+To recode lots of values, then use a join technique. Construct a look-up table, then join it to get the new values.
+
+to find that weird expression I googled:
+"regex r remove inside parentheses"
+regex is for detecting patterns in text. That's all you need know for this situation.
+```{r}
+lookup <- 
+  read_csv("https://raw.githubusercontent.com/timriffe/BSSD2022Module1/master/Data/code_lookup.csv") %>% 
+  # separate(code, into = c("code", NA), sep = " ")
+ mutate(code = gsub(pattern = "\\s*\\([^\\)]+\\)", 
+                    replacement = "", 
+                    x = code),
+        # remove that trailing space, using position tricks
+        code = substr(code, 1, nchar(code) - 1))
+```
+
+Time for the join; here the join is premised on having a nice look-up table where codes conform with what you have in your data. 
+
+1. `left_join()` is left-side dominant (you lose no cases from the left object)
+2. `right_join()` is the opposite
+3. `inner_join()` keeps only matching cases
+4. `full_join()` throws nothing out
+```{r}
+nrow(hfd)
+hfd %>% 
+  right_join(lookup, by = "code")
+```
+
+
+
+
+
+## funny encoding issue for Lucie, to be resolved later
+```{r}
+default_locale()
+```
+
+
+
+
