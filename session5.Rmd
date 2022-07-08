@@ -240,5 +240,47 @@ default_locale()
 ```
 
 
+## Exercises
+
+1. write a function to calculate the mean age of a fertility rate distribution. The formula looks like this. The function will have an argument for asfr and an argument for age.
+
+$$ MAB = \frac{\sum asfr \cdot age}{\sum asfr}$$
+Life expectancy is also like this: $LE = \frac{\sum d_x \cdot age}{\sum d_x}$
+
+```{r}
+my_mab <- function(asfr, age){
+  mab <- sum(asfr * age) / sum(asfr) + .5
+  return(mab)
+}
+```
+
+2. calculate using a tidy approach (or if you're bold a loop approach) the TFR and MAB for each country-year in the HFD.
+
+```{r}
+fert_summary <-
+  hfd %>% 
+  group_by(code, year) %>% 
+  summarize(tfr = sum(asfr),
+            mab = my_mab(asfr = asfr,
+                         age = age),
+            .groups = "drop") 
+```
+
+3. make a scatterplot of this (MAB by TFR)
+
+```{r}
+fert_summary %>% 
+  ggplot(mapping = aes(x = tfr, y = mab)) +
+  geom_point(alpha = .2)
+```
+
+```{r}
+fert_summary %>% 
+  ggplot(mapping = aes(x = year,
+                       y = mab,
+                       group = code))+
+  geom_line()
+```
+
 
 
