@@ -1,0 +1,134 @@
+---
+title: "Super Tricky Challenge"
+author: "Tim Riffe"
+date: "July 8, 2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# A challenging worked example
+
+The challenge: how much can fertility distributions vary within a particular **level** of fertility? There's more than one way to do this. The example is challenging because the input data, downloaded as-is from the [Human Fertility Collection](https://www.fertilitydata.org/cgi-bin/index.php) have many overlapping subsets, such as overlapping periods, age-definitions, or even multiple sources for the same data. In principle we don't care about the specifics of each subpopulation, because we're interested in seeing a big pattern emerge from the data.
+
+```{r, fig.height = 10, fig.width = 5}
+library(tidyverse)
+
+HFC <- read_csv("Data/HFC_ASFRstand_TOT.zip", 
+                na = '.') 
+
+HFCextremes <- 
+  HFC %>% 
+  # there's no variable for period width in the data, but we
+  # need to be able to group on this too!! I found out the hard way...
+  mutate(YearInt = Year2 - Year1 + 1) %>% 
+  # I don't know if we really need to group on all this, but it seems
+  # conservative enough to split on everything that hypothetically could
+  # be used to define a subset
+	group_by(Country, 
+          Region,
+          Urban,
+          Origin,
+					Year1, 
+					AgeDef, 
+					Vitality, 
+					Collection, 
+					SourceType, 
+					RefCode,
+					YearInt)  %>% 
+  # This part narrated separately
+	mutate(
+	     Age = if_else(AgeDef == "ACY", Age + .5, Age),
+	     TFR = sum(ASFR, na.rm = TRUE),
+		   MAB = sum(ASFR * Age, na.rm = TRUE) / TFR,
+		   TFRint = TFR - TFR %% .25) %>% 
+	ungroup() %>% 
+  # define extremes within TFR bins, then filter 
+  # down to just these
+	group_by(TFRint) %>% 
+	mutate(MABmax = MAB == max(MAB),
+		     MABmin = MAB == min(MAB)) %>% 
+	filter((MABmax | MABmin) & (TFR < 6)) %>% 
+	mutate(extremes = if_else(MABmax,"high MAB", "low MAB"))
+
+library(ggridges)
+library(colorspace)
+HFCextremes %>% 
+  ggplot(mapping = aes(x = Age, 
+                       # this `y` sets the levels
+			   					     y = as.factor(TFRint))) +
+  # new geom!
+	geom_ridgeline(aes(height = ASFR, # height is for curves within the levels
+	                   fill = extremes), 
+				   scale = 4, alpha = .5) +
+  # clean look
+  theme_minimal() + 
+  labs(y = "asfr curves by TFR",
+       title = "Many ways to have low fertility\none way to have high fertility",
+       caption = "Data from HFC: www.fertilitydata.org") +
+  theme(legend.position = "none") +
+  # see hcl_palettes(plot=TRUE) to choose a different palette
+  scale_fill_discrete_qualitative("Harmonic")
+  # type `color picker` in google to get a quick way to find these values
+  # scale_fill_manual(values = c("high MAB" = "#6384ba",
+  #                              "low MAB" = "#8970c4"))
+```
+
+Separate annotation of the middle mutate, which looks like this:
+```{r, eval = FALSE}
+	mutate(
+	     Age = if_else(AgeDef == "ACY", Age + .5, Age),
+	     TFR = sum(ASFR, na.rm = TRUE),
+		   MAB = sum(ASFR * Age, na.rm = TRUE) / TFR,
+		   TFRint = TFR - TFR %% .25)
+```
+1 . We shift some `Age` classes up by 1/2 due to different **Lexis** shapes. If age is defined the way we usually think about it: "what was your last birthday?" (code = `ACY`), then we add 1/2 in order to center the rates in the interval. If age is defined as "what birthday gets celebrated this calendar year?" (this is the one in the CED logo, code  = `ARDY`), then it's already centered on an integer age. 
+2. `TFR` is the sum of the rates over age. Here, this works for all groups, because we declared strict groups in the previous step.
+3. `MAB` is the weighted average of `Age`, where age-specific fertility rates are the weights! The `TFR` you see in the denominator is just $\sum F_x$
+4. We then make a variable for arbitrary TFR intervals using the modulo operator. 
+
+* recall that `TFR`, `MAB`, and `TFRint` are summary indices, but we did them in `mutate()`, so they will be repeated over rows within groups!
+
+The final bit of that pipeline is this:
+```{r, eval = FALSE}
+	group_by(TFRint) %>% 
+	mutate(MABmax = MAB == max(MAB),
+		     MABmin = MAB == min(MAB)) %>% 
+	filter((MABmax | MABmin) & (TFR < 6)) %>% 
+	mutate(extremes = if_else(MABmax,"high MAB", "low MAB"))
+```
+Here we create `TRUE` /  `FALSE` indicators for which subsets are the maximum and minimum mean ages at birth (`MAB`) *within* each `TFR` interval. We then filter down to only keep these extreme cases. Finally, we label the high and low subsets to be able to differentiate them in the plot.
+
+
+I wonder how we might quantify how different two ASFR patterns of the same level are? Maybe convert to densities and see what fraction overlaps, like so:
+
+```{r}
+HFCextremes %>% 
+  # select just what we need
+  select(Age, ASFR, TFRint, extremes) %>% 
+  # make sure no NAs; make age on par again
+  mutate(ASFR = if_else(is.na(ASFR),0, ASFR),
+         Age = floor(Age)) %>% 
+  # standardize asfr to sum to 1, so we just have "shape"
+  group_by(TFRint, extremes) %>% 
+  mutate(asfr_stand = ASFR / sum(ASFR, na.rm = TRUE)) %>% # sum to 1
+  ungroup() %>% 
+  # put extreme asfr_stand side-by-side
+  select(-ASFR) %>% 
+  pivot_wider(names_from = extremes, values_from = asfr_stand) %>% 
+  # again, this may have introduced NAs (not sure), due to different age ranges?
+  mutate(`high MAB` = if_else(is.na(`high MAB`), 0,`high MAB`),
+         `low MAB` = if_else(is.na(`low MAB`), 0,`low MAB`)) %>% 
+  group_by(TFRint) %>% 
+  # calculate dissimilarity etc within TFR intervals
+  summarize(divergence = sum(abs(`high MAB` - `low MAB`)) / 2,
+            similarity = 1 - divergence) %>% 
+  # plot it; same conclusion as we had before!
+  ggplot(aes(x = TFRint, y = similarity)) +
+  geom_line() +
+  labs(title = "Higher TFR implies more similar fertility age distributions")
+```
+
+
